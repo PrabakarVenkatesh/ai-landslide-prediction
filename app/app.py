@@ -24,41 +24,16 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 # 📁 Model Directory
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
-# 🔍 DEBUG INFO (VERY IMPORTANT)
 print("BASE_DIR:", BASE_DIR)
 print("MODEL_DIR:", MODEL_DIR)
 
-if os.path.exists(MODEL_DIR):
-    print("Files in models folder:", os.listdir(MODEL_DIR))
-else:
-    print("❌ Models folder NOT FOUND")
-
-# 🤖 Load Models Safely
-models = {}
-
-def load_models():
-    try:
-        models["cnn"] = tf.keras.models.load_model(os.path.join(MODEL_DIR, "cnn_model.keras"))
-        print("✅ CNN model loaded")
-
-    except Exception as e:
-        print("❌ CNN model error:", e)
-
-    try:
-        models["resnet"] = tf.keras.models.load_model(os.path.join(MODEL_DIR, "resnet_model.keras"))
-        print("✅ ResNet model loaded")
-
-    except Exception as e:
-        print("❌ ResNet model error:", e)
-
-    try:
-        models["fusion"] = tf.keras.models.load_model(os.path.join(MODEL_DIR, "fusion_model.keras"))
-        print("✅ Fusion model loaded")
-
-    except Exception as e:
-        print("❌ Fusion model error:", e)
-
-load_models()
+# ✅ LOAD ONLY ONE MODEL (IMPORTANT)
+try:
+    model = tf.keras.models.load_model(os.path.join(MODEL_DIR, "fusion_model.keras"))
+    print("✅ Fusion model loaded successfully")
+except Exception as e:
+    print("❌ Error loading model:", e)
+    model = None
 
 # 📁 Database Path
 DB_PATH = os.path.join(BASE_DIR, "database.db")
@@ -81,13 +56,13 @@ def init_db():
 
 init_db()
 
-def save(result, model, filename, conf):
+def save(result, filename, conf):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO predictions (filename, model, result, confidence, timestamp)
     VALUES (?, ?, ?, ?, ?)
-    """, (filename, model, result, conf, datetime.now()))
+    """, (filename, "fusion", result, conf, datetime.now()))
     conn.commit()
     conn.close()
 
@@ -99,33 +74,32 @@ def index():
 
     if request.method == "POST":
         file = request.files["file"]
-        model_name = request.form.get("model", "fusion")
 
-        if model_name not in models:
-            return f"❌ Model '{model_name}' not loaded"
+        if model is None:
+            return "❌ Model not loaded properly"
 
+        # Save file
         path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
         file.save(path)
 
-        # 🖼 Image preprocessing
+        # 🖼 Preprocess image
         img = load_img(path, target_size=(224, 224))
         img = img_to_array(img) / 255.0
         img = np.expand_dims(img, axis=0)
 
         # 🔮 Prediction
-        model = models[model_name]
         pred = model.predict(img)
         prob = float(pred[0][0])
 
         result = "Landslide" if prob < 0.5 else "Non-Landslide"
 
-        # 💾 Save to DB
-        save(result, model_name, file.filename, prob)
+        # 💾 Save
+        save(result, file.filename, prob)
 
         img_path = "uploads/" + file.filename
 
     return render_template("index.html", result=result, img_path=img_path)
 
-# ▶️ Run App
+# ▶️ Run
 if __name__ == "__main__":
     app.run(debug=True)
