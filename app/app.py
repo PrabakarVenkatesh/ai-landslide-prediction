@@ -27,12 +27,14 @@ MODEL_DIR = os.path.join(BASE_DIR, "models")
 print("BASE_DIR:", BASE_DIR)
 print("MODEL_DIR:", MODEL_DIR)
 
-# ✅ LOAD ONLY ONE MODEL (IMPORTANT)
+# 🤖 Load SINGLE Model (Best for deployment)
 try:
-    model = tf.keras.models.load_model(os.path.join(MODEL_DIR, "fusion_model.keras"))
+    model = tf.keras.models.load_model(
+        os.path.join(MODEL_DIR, "fusion_model.keras")
+    )
     print("✅ Fusion model loaded successfully")
 except Exception as e:
-    print("❌ Error loading model:", e)
+    print("❌ Model loading error:", e)
     model = None
 
 # 📁 Database Path
@@ -56,13 +58,13 @@ def init_db():
 
 init_db()
 
-def save(result, filename, conf):
+def save(result, model_name, filename, conf):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO predictions (filename, model, result, confidence, timestamp)
     VALUES (?, ?, ?, ?, ?)
-    """, (filename, "fusion", result, conf, datetime.now()))
+    """, (filename, model_name, result, conf, datetime.now()))
     conn.commit()
     conn.close()
 
@@ -73,16 +75,19 @@ def index():
     img_path = ""
 
     if request.method == "POST":
+        if model is None:
+            return "❌ Model not loaded. Check logs."
+
         file = request.files["file"]
 
-        if model is None:
-            return "❌ Model not loaded properly"
+        if file.filename == "":
+            return "❌ No file selected"
 
-        # Save file
+        # Save image
         path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
         file.save(path)
 
-        # 🖼 Preprocess image
+        # 🖼 Image preprocessing
         img = load_img(path, target_size=(224, 224))
         img = img_to_array(img) / 255.0
         img = np.expand_dims(img, axis=0)
@@ -93,13 +98,13 @@ def index():
 
         result = "Landslide" if prob < 0.5 else "Non-Landslide"
 
-        # 💾 Save
-        save(result, file.filename, prob)
+        # 💾 Save to DB
+        save(result, "fusion", file.filename, prob)
 
         img_path = "uploads/" + file.filename
 
     return render_template("index.html", result=result, img_path=img_path)
 
-# ▶️ Run
+# ▶️ Run App (Local only)
 if __name__ == "__main__":
     app.run(debug=True)
