@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Landslide Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🌍 Landslide Prediction</h1>
+
+    <!-- ✅ FORM (IMPORTANT FIX) -->
+    <form method="POST" enctype="multipart/form-data">
+
+        <!-- 🔽 Model Selection -->
+        <label>Select Model:</label>
+        <select name="model">
+            <option value="fusion">Fusion Model</option>
+            <option value="cnn">CNN</option>
+            <option value="resnet">ResNet</option>
+        </select>
+
+        <br><br>
+
+        <!-- 📂 File Upload -->
+        <input type="file" name="file" required>
+
+        <br><br>
+
+        <!-- 🚀 Predict Button -->
+        <button type="submit">Predict</button>
+
+    </form>
+
+    <!-- ⏳ Loading (Optional JS use later) -->
+    <div id="loading" style="display:none;">⏳ Predicting...</div>
+
+    <!-- 📊 RESULT DISPLAY -->
+    {% if result %}
+        <h2>Result: {{ result }}</h2>
+        <h3>Confidence: {{ confidence }}</h3>
+
+        <img src="{{ url_for('static', filename=img_path) }}"
+             width="250"
+             style="margin-top:15px; border-radius:10px;">
+    {% endif %}
+
+</div>
+
+</body>
+</html>
